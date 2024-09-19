@@ -16,6 +16,8 @@ class MyApp extends StatelessWidget {
           backgroundColor: const Color.fromARGB(84, 30, 30, 176),
           title: const Text('HomeGuard'),
         ),
+        body: Center(
+            child: ElevatedButton(onPressed: () {}, child: Text('Login'))),
         bottomNavigationBar: BottomNavigationBar(items: const [
           BottomNavigationBarItem(label: 'Login', icon: Icon(Icons.login)),
           BottomNavigationBarItem(
