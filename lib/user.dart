@@ -7,9 +7,7 @@ class User {
 
 class Database {
   static List<User> users = [
-    User('user1', 'password1'),
-    User('user2', 'password2'),
-    User('user3', 'password3'),
+    User('admin', 'admin!'),
   ];
 
   static void addUser(String username, String password) {

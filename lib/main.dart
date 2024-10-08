@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'user.dart';
+import 'device.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(HomeGuardApp());
@@ -14,10 +16,10 @@ class HomeGuardApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
       ),
-      initialRoute: '/',
+      initialRoute: '/login',
       routes: {
-        '/': (context) => LoginPage(),
-        '/signup': (context) => SignUpPage(),
+        '/login': (context) => LoginPage(),
+        // '/signup': (context) => SignUpPage(),
         '/dashboard': (context) => Dashboard(),
       },
     );
@@ -39,7 +41,8 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Login'),
+        backgroundColor: const Color.fromARGB(84, 30, 30, 176),
+        title: const Text('Login'),
       ),
       body: Padding(
         padding: EdgeInsets.all(20.0),
@@ -73,11 +76,14 @@ class _LoginPageState extends State<LoginPage> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     String username = _usernameController.text;
                     String password = _passwordController.text;
-                    if (Database.isValidUser(username, password)) {
+                    var url = Uri.parse('http://192.168.209.159:5000/login');
+                    var response = await http.post(url,
+                        body: {'username': username, 'password': password});
+                    if (response.statusCode != 401) {
                       Navigator.pushNamed(context, '/dashboard',
                           arguments: username);
                     } else {
@@ -87,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
                     }
                   }
                 },
-                child: Text('Login'),
+                child: const Text('Login'),
               ),
               SizedBox(height: 10),
               Text(
@@ -98,12 +104,12 @@ class _LoginPageState extends State<LoginPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Don't have an account? "),
+                  const Text("Don't have an account? "),
                   GestureDetector(
                     onTap: () {
                       Navigator.pushNamed(context, '/signup');
                     },
-                    child: Text(
+                    child: const Text(
                       'Sign Up',
                       style: TextStyle(
                           fontWeight: FontWeight.bold, color: Colors.blue),
@@ -119,76 +125,178 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class SignUpPage extends StatefulWidget {
+// class SignUpPage extends StatefulWidget {
+//   @override
+//   _SignUpPageState createState() => _SignUpPageState();
+// }
+//
+// class _SignUpPageState extends State<SignUpPage> {
+//   final _formKey = GlobalKey<FormState>();
+//   TextEditingController _usernameController = TextEditingController();
+//   TextEditingController _passwordController = TextEditingController();
+//   String _errorMessage = '';
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         backgroundColor: const Color.fromARGB(84, 30, 30, 176),
+//         title: const Text('Sign Up'),
+//       ),
+//       body: Padding(
+//         padding: EdgeInsets.all(20.0),
+//         child: Form(
+//           key: _formKey,
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.stretch,
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: <Widget>[
+//               TextFormField(
+//                 controller: _usernameController,
+//                 decoration: InputDecoration(labelText: 'Username'),
+//                 validator: (value) {
+//                   if (value!.isEmpty) {
+//                     return 'Please enter your username';
+//                   } else if (Database.isExistingUser(value)) {
+//                     return 'Username already exists';
+//                   }
+//                   return null;
+//                 },
+//               ),
+//               SizedBox(height: 20),
+//               TextFormField(
+//                 controller: _passwordController,
+//                 decoration: InputDecoration(labelText: 'Password'),
+//                 obscureText: true,
+//                 validator: (value) {
+//                   if (value!.isEmpty) {
+//                     return 'Please enter your password';
+//                   }
+//                   return null;
+//                 },
+//               ),
+//               SizedBox(height: 20),
+//               ElevatedButton(
+//                 onPressed: () {
+//                   if (_formKey.currentState!.validate()) {
+//                     String username = _usernameController.text;
+//                     String password = _passwordController.text;
+//                     Database.addUser(username, password);
+//                     Navigator.pop(context);
+//                   }
+//                 },
+//                 child: Text('Sign Up'),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+class Dashboard extends StatefulWidget {
   @override
-  _SignUpPageState createState() => _SignUpPageState();
+  _DashboardState createState() => _DashboardState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
-  final _formKey = GlobalKey<FormState>();
-  TextEditingController _usernameController = TextEditingController();
-  TextEditingController _passwordController = TextEditingController();
-  String _errorMessage = '';
+class _DashboardState extends State<Dashboard> {
+  List<Device> scannedDevices = [];
+  List<Device> refreshedDevices = [];
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Sign Up'),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              TextFormField(
-                controller: _usernameController,
-                decoration: InputDecoration(labelText: 'Username'),
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Please enter your username';
-                  } else if (Database.isExistingUser(value)) {
-                    return 'Username already exists';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 20),
-              TextFormField(
-                controller: _passwordController,
-                decoration: InputDecoration(labelText: 'Password'),
-                obscureText: true,
-                validator: (value) {
-                  if (value!.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    String username = _usernameController.text;
-                    String password = _passwordController.text;
-                    Database.addUser(username, password);
-                    Navigator.pop(context);
-                  }
-                },
-                child: Text('Sign Up'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> refreshDevices() async {
+    scannedDevices = [];
+    var url = 'http://192.168.209.159:5000/refresh';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print(response.body);
+        var data = jsonDecode(response.body);
+        if (data["records"] != null && data["records"] is List) {
+          setState(() {
+            // Parsing the records into a list of Device objects
+            refreshedDevices = (data["records"] as List)
+                .map((deviceJson) => Device.refreshFromJson(deviceJson))
+                .toList();
+          });
+        } else {
+          print(
+              'Failed to refresh devices. Status code: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Error refreshing devices: $e');
+    }
   }
-}
 
-class Dashboard extends StatelessWidget {
+  Future<void> scanDevices() async {
+    refreshedDevices = [];
+    var url = 'http://192.168.209.159:5000/dashboard';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print(response.body);
+        var data = jsonDecode(response.body);
+        if (data["connected_devices"] != null && data["connected_devices"] is List) {
+          setState(() {
+            // Parsing the records into a list of Device objects
+            scannedDevices = (data["connected_devices"] as List)
+                .map((deviceJson) => Device.scanFromJson(deviceJson))
+                .toList();
+          });
+        } else {
+          print(
+              'Failed to refresh devices. Status code: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Error refreshing devices: $e');
+    }
+  }
+
+  // TODO
+  Future<void> updateDevice() async {
+    var url = 'http://192.168.209.159:5000/refresh';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print(response.body);
+        var data = jsonDecode(response.body);
+        if (data["records"] != null && data["records"] is List) {
+          setState(() {
+            // Parsing the records into a list of Device objects
+            refreshedDevices = (data["records"] as List)
+                .map((deviceJson) => Device.refreshFromJson(deviceJson))
+                .toList();
+          });
+        } else {
+          print(
+              'Failed to refresh devices. Status code: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Error refreshing devices: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final String username =
@@ -196,24 +304,91 @@ class Dashboard extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome'),
+        automaticallyImplyLeading: false,
+        backgroundColor: const Color.fromARGB(84, 30, 30, 176),
+        title: const Text('Dashboard'),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'Welcome, $username!',
-              style: TextStyle(fontSize: 20),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.popUntil(context, ModalRoute.withName('/'));
-              },
-              child: Text('Logout'),
-            ),
-          ],
+        child: Container(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: <Widget>[
+              const SizedBox(height: 20),
+              Text(
+                'Welcome, $username!',
+                style: TextStyle(fontSize: 20),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                      onPressed:scanDevices,
+                      child: const Text('Scan')),
+                  ElevatedButton(
+                      onPressed: refreshDevices,
+                      child: const Text('Refresh')),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: refreshedDevices.isNotEmpty
+                    ? ListView.builder(
+                  itemCount: refreshedDevices.length,
+                  itemBuilder: (context, index) {
+                    return Card(
+                      margin: EdgeInsets.all(8),
+                      child: ListTile(
+                        title: Text(
+                            "Device Name: ${refreshedDevices[index].displayName.isEmpty ? 'Unknown' : refreshedDevices[index].displayName}"),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("MAC: ${refreshedDevices[index].mac}"),
+                            Text("IPv4: ${refreshedDevices[index].ipv4.join(', ')}"),
+                            Text("IPv6: ${refreshedDevices[index].ipv6.join(', ')}"),
+                            Text(
+                                "Description: ${refreshedDevices[index].description.isEmpty ? 'No description' : refreshedDevices[index].description}"),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                )
+                    : scannedDevices.isNotEmpty
+                    ? ListView.builder(
+                  itemCount: scannedDevices.length,
+                  itemBuilder: (context, index) {
+                    return Card(
+                      margin: EdgeInsets.all(8),
+                      child: ListTile(
+                        title: Text(
+                            "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}"),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text("MAC: ${scannedDevices[index].mac}"),
+                            Text("IP Addresses:"),
+                            Text(" • IPv4: ${scannedDevices[index].ipv4.join(', ')}"),
+                            Text(" • IPv6: ${scannedDevices[index].ipv6.join(', ')}"),
+                            ],
+                        ),
+                      ),
+                    );
+                  },
+                )
+                    : Center(child: Text('No devices to show')), // Shows when both lists are empty
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.popUntil(context, ModalRoute.withName('/login'));
+                },
+                child: Text('Logout'),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
