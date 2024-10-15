@@ -101,22 +101,22 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(color: Colors.red),
               ),
               SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Don't have an account? "),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/signup');
-                    },
-                    child: const Text(
-                      'Sign Up',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.blue),
-                    ),
-                  ),
-                ],
-              ),
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.center,
+              //   children: [
+              //     const Text("Don't have an account? "),
+              //     GestureDetector(
+              //       onTap: () {
+              //         Navigator.pushNamed(context, '/signup');
+              //       },
+              //       child: const Text(
+              //         'Sign Up',
+              //         style: TextStyle(
+              //             fontWeight: FontWeight.bold, color: Colors.blue),
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
           ),
         ),
@@ -220,7 +220,6 @@ class _DashboardState extends State<Dashboard> {
         var data = jsonDecode(response.body);
         if (data["records"] != null && data["records"] is List) {
           setState(() {
-            // Parsing the records into a list of Device objects
             refreshedDevices = (data["records"] as List)
                 .map((deviceJson) => Device.refreshFromJson(deviceJson))
                 .toList();
@@ -249,7 +248,8 @@ class _DashboardState extends State<Dashboard> {
       if (response.statusCode == 200) {
         print(response.body);
         var data = jsonDecode(response.body);
-        if (data["connected_devices"] != null && data["connected_devices"] is List) {
+        if (data["connected_devices"] != null &&
+            data["connected_devices"] is List) {
           setState(() {
             // Parsing the records into a list of Device objects
             scannedDevices = (data["connected_devices"] as List)
@@ -266,36 +266,79 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  // TODO
-  Future<void> updateDevice() async {
-    var url = 'http://192.168.209.159:5000/refresh';
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      );
+  Future<void> showEditDialogue(BuildContext context) async {
+    TextEditingController nameController = TextEditingController();
+    TextEditingController descriptionController = TextEditingController();
 
-      if (response.statusCode == 200) {
-        print(response.body);
-        var data = jsonDecode(response.body);
-        if (data["records"] != null && data["records"] is List) {
-          setState(() {
-            // Parsing the records into a list of Device objects
-            refreshedDevices = (data["records"] as List)
-                .map((deviceJson) => Device.refreshFromJson(deviceJson))
-                .toList();
-          });
-        } else {
-          print(
-              'Failed to refresh devices. Status code: ${response.statusCode}');
-        }
-      }
-    } catch (e) {
-      print('Error refreshing devices: $e');
-    }
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Device'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Device Display Name',
+                ),
+              ),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Device Description',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                // Close the dialog and print the entered values
+                Navigator.of(context).pop();
+                // Print the values after a short delay
+                Future.delayed(Duration(milliseconds: 500), () {
+                  print("Device Name: ${nameController.text}");
+                  print("Device Description: ${descriptionController.text}");
+                });
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
+
+  // var url = 'http://192.168.209.159:5000/refresh';
+  // try {
+  //   final response = await http.post(
+  //     Uri.parse(url),
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //     },
+  //     body: {'display_name': displayName, 'description': description}
+  //   );
+
+  //   if (response.statusCode == 200) {
+  //     print(response.body);
+  //     var data = jsonDecode(response.body);
+  //     if (data["records"] != null && data["records"] is List) {
+  //       setState(() {
+  //         // Parsing the records into a list of Device objects
+  //         refreshedDevices = (data["records"] as List)
+  //             .map((deviceJson) => Device.refreshFromJson(deviceJson))
+  //             .toList();
+  //       });
+  //     } else {
+  //       print(
+  //           'Failed to refresh devices. Status code: ${response.statusCode}');
+  //     }
+  //   }
+  // } catch (e) {
+  //   print('Error refreshing devices: $e');
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -323,68 +366,92 @@ class _DashboardState extends State<Dashboard> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton(
-                      onPressed:scanDevices,
-                      child: const Text('Scan')),
+                      onPressed: scanDevices, child: const Text('Scan')),
                   ElevatedButton(
-                      onPressed: refreshDevices,
-                      child: const Text('Refresh')),
+                      onPressed: refreshDevices, child: const Text('Refresh')),
                 ],
               ),
               const SizedBox(height: 20),
               Expanded(
                 child: refreshedDevices.isNotEmpty
                     ? ListView.builder(
-                  itemCount: refreshedDevices.length,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      margin: EdgeInsets.all(8),
-                      child: ListTile(
-                        title: Text(
-                            "Device Name: ${refreshedDevices[index].displayName.isEmpty ? 'Unknown' : refreshedDevices[index].displayName}"),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("MAC: ${refreshedDevices[index].mac}"),
-                            Text("IPv4: ${refreshedDevices[index].ipv4.join(', ')}"),
-                            Text("IPv6: ${refreshedDevices[index].ipv6.join(', ')}"),
-                            Text(
-                                "Description: ${refreshedDevices[index].description.isEmpty ? 'No description' : refreshedDevices[index].description}"),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                )
+                        itemCount: refreshedDevices.length,
+                        itemBuilder: (context, index) {
+                          return Card(
+                            margin: EdgeInsets.all(8),
+                            child: ListTile(
+                              title: Text(
+                                  "Device Name: ${refreshedDevices[index].displayName.isEmpty ? 'Unknown' : refreshedDevices[index].displayName}"),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("MAC: ${refreshedDevices[index].mac}"),
+                                  Text(
+                                      "IPv4: ${refreshedDevices[index].ipv4.join(', ')}"),
+                                  Text(
+                                      "IPv6: ${refreshedDevices[index].ipv6.join(', ')}"),
+                                  Text(
+                                      "Description: ${refreshedDevices[index].description.isEmpty ? 'No description' : refreshedDevices[index].description}"),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      )
                     : scannedDevices.isNotEmpty
-                    ? ListView.builder(
-                  itemCount: scannedDevices.length,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      margin: EdgeInsets.all(8),
-                      child: ListTile(
-                        title: Text(
-                            "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}"),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text("MAC: ${scannedDevices[index].mac}"),
-                            Text("IP Addresses:"),
-                            Text(" • IPv4: ${scannedDevices[index].ipv4.join(', ')}"),
-                            Text(" • IPv6: ${scannedDevices[index].ipv6.join(', ')}"),
-                            ],
-                        ),
-                      ),
-                    );
-                  },
-                )
-                    : Center(child: Text('No devices to show')), // Shows when both lists are empty
+                        ? ListView.builder(
+                            itemCount: scannedDevices.length,
+                            itemBuilder: (context, index) {
+                              return Card(
+                                margin: EdgeInsets.all(8),
+                                child: ListTile(
+                                  title: Text(
+                                      "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}"),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Text("MAC: ${scannedDevices[index].mac}"),
+                                      const Text("IP Addresses:"),
+                                      Text(
+                                          " • IPv4: ${scannedDevices[index].ipv4.join(', ')}"),
+                                      Text(
+                                          " • IPv6: ${scannedDevices[index].ipv6.join(', ')}"),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              // Show the dialog but don't return anything
+                                              await showEditDialogue(context);
+                                            },
+                                            child: const Text('Edit'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              // Action for "Capture" button
+                                            },
+                                            child: const Text('Capture'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : const Center(
+                            child: Text(
+                                'No devices to show')), //both lists are empty
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   Navigator.popUntil(context, ModalRoute.withName('/login'));
                 },
-                child: Text('Logout'),
+                child: const Text('Logout'),
               ),
               const SizedBox(height: 20),
             ],
