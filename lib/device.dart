@@ -13,7 +13,7 @@ class Device {
     this.description = "",
   });
 
-  factory Device.refreshFromJson(List<dynamic> json) {
+  factory Device.savedFromJson(List<dynamic> json) {
     return Device(
       ipv4: json[1],
       mac: json[2],

@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'device.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
-const String ipAddress = "http://192.168.8.159:5000";
+const String ipAddress = "http://192.168.196.159:5000";
 
 void main() {
   runApp(HomeGuardApp());
@@ -135,11 +138,11 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   List<Device> scannedDevices = [];
-  List<Device> refreshedDevices = [];
+  List<Device> savedDevices = [];
   List<bool> selectedDevices = [];
   String didSomething = "";
 
-  Future<void> refreshDevices() async {
+  Future<void> showSavedDevices() async {
     didSomething = "";
     scannedDevices = [];
     var url = '$ipAddress/refresh';
@@ -156,23 +159,23 @@ class _DashboardState extends State<Dashboard> {
         var data = jsonDecode(response.body);
         if (data["records"] != null && data["records"] is List) {
           setState(() {
-            refreshedDevices = (data["records"] as List)
-                .map((deviceJson) => Device.refreshFromJson(deviceJson))
+            savedDevices = (data["records"] as List)
+                .map((deviceJson) => Device.savedFromJson(deviceJson))
                 .toList();
           });
         } else {
           print(
-              'Failed to refresh devices. Status code: ${response.statusCode}');
+              'Failed to show saved devices. Status code: ${response.statusCode}');
         }
       }
     } catch (e) {
-      print('Error refreshing devices: $e');
+      print('Error showing saved devices: $e');
     }
   }
 
   Future<void> scanDevices() async {
     didSomething = "";
-    refreshedDevices = [];
+    savedDevices = [];
     var url = '$ipAddress/dashboard';
     try {
       final response = await http.post(
@@ -194,109 +197,200 @@ class _DashboardState extends State<Dashboard> {
             selectedDevices = List<bool>.filled(scannedDevices.length, false);
           });
         } else {
-          print(
-              'Failed to refresh devices. Status code: ${response.statusCode}');
+          print('Failed to scan devices. Status code: ${response.statusCode}');
         }
       }
     } catch (e) {
-      print('Error refreshing devices: $e');
+      print('Error scanning devices: $e');
     }
   }
 
-  Future<void> showUpdateDialogue(
+  File? selectedImage; // Holds the selected image file
+  String selectedFileName = "No file chosen"; // Default file text
+
+  Future<void> showUpdateAndSaveDialogue(
       BuildContext context, String ip, String mac) async {
     TextEditingController nameController = TextEditingController();
     TextEditingController descriptionController = TextEditingController();
 
+    File? dialogSelectedImage;
+    String dialogSelectedFileName = "No file chosen";
+
+    // Method to open the camera and capture an image
+    Future<void> openCamera(StateSetter dialogSetState) async {
+      final ImagePicker picker = ImagePicker();
+      final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+
+      if (photo != null) {
+        dialogSetState(() {
+          dialogSelectedImage = File(photo.path); // Update dialog state
+          dialogSelectedFileName = photo.name; // Update file name
+        });
+      }
+    }
+
+    // Method to show the file upload dialog
+    void showImageUploadDialog(StateSetter dialogSetState) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Upload Image'),
+            content: const Text('Choose an option:'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context); // Close the dialog
+                  await openCamera(dialogSetState); // Open the camera
+                },
+                child: const Text('Take Picture'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Update Device'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Device Display Name',
-                ),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Device Description',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty ||
-                    descriptionController.text.isEmpty) {
-                  showDialog<void>(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('Error'),
-                        content: const Text('Both fields are required!'),
-                        actions: [
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('OK'),
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter dialogSetState) {
+            return AlertDialog(
+              title: const Text('Update Device'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Device Display Name',
+                      ),
+                    ),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Device Description',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            dialogSelectedFileName,
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.grey),
                           ),
-                        ],
+                        ),
+                        ElevatedButton(
+                          onPressed: () =>
+                              showImageUploadDialog(dialogSetState),
+                          child: const Text('Choose File'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    dialogSelectedImage != null
+                        ? Image.file(
+                            dialogSelectedImage!,
+                            height: 150,
+                            width: 150,
+                            fit: BoxFit.cover,
+                          )
+                        : const Text('No image selected.'),
+                  ],
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.isEmpty ||
+                        descriptionController.text.isEmpty) {
+                      showDialog<void>(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Error'),
+                            content: const Text('Both fields are required!'),
+                            actions: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          );
+                        },
                       );
-                    },
-                  );
-                } else {
-                  String url = '$ipAddress/update_device';
-                  try {
-                    final response = await http.post(
-                      Uri.parse(url),
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: jsonEncode({
-                        'ip': ip,
-                        'mac': mac,
-                        'device_name': nameController.text,
-                        'device_description': descriptionController.text,
-                      }),
-                    );
-
-                    if (response.statusCode == 200) {
-                      scannedDevices = [];
-                      refreshedDevices = [];
-                      didSomething = "Device Updated Successfully";
                     } else {
-                      print(
-                          'Failed to update device. Status code: ${response.statusCode}');
-                    }
+                      String url = '$ipAddress/update_device';
+                      try {
+                        // Create a request with an optional image file
+                        final request =
+                            http.MultipartRequest('POST', Uri.parse(url))
+                              ..headers["Content-Type"] = "application/json"
+                              ..fields['ip'] = ip
+                              ..fields['mac'] = mac
+                              ..fields['device_name'] = nameController.text
+                              ..fields['device_description'] =
+                                  descriptionController.text;
 
-                    Navigator.of(context).pop();
-                  } catch (e) {
-                    print('Error occurred while updating device: $e');
-                    Navigator.of(context).pop();
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                // Simply close the dialog
-                Navigator.of(context).pop();
-              },
-              child: const Text('Close'),
-            ),
-          ],
+                        if (dialogSelectedImage != null) {
+                          request.files.add(await http.MultipartFile.fromPath(
+                            'device_image',
+                            dialogSelectedImage!.path,
+                          ));
+                        }
+
+                        final response = await request.send();
+                        if (response.statusCode == 302) {
+                          setState(() {
+                            scannedDevices = [];
+                            savedDevices = [];
+                            didSomething = "Device Updated Successfully";
+                          });
+                        } else {
+                          print(
+                              'Failed to update device. Status code: ${response.statusCode}');
+                        }
+
+                        Navigator.of(context).pop();
+                      } catch (e) {
+                        print('Error occurred while updating device: $e');
+                        Navigator.of(context).pop();
+                      }
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the dialog
+                  },
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
         );
       },
-    );
+    ).then((_) {
+      // Reset state after dialog is closed
+      setState(() {
+        selectedImage = null;
+        selectedFileName = "No file chosen";
+      });
+    });
   }
 
   Future<void> showCaptureDialogue(
@@ -384,7 +478,7 @@ class _DashboardState extends State<Dashboard> {
 
                     if (response.statusCode == 200) {
                       scannedDevices = [];
-                      refreshedDevices = [];
+                      savedDevices = [];
                       didSomething = "Packets captured succesfully";
                     } else {
                       print('Response: ${response.body}');
@@ -440,20 +534,36 @@ class _DashboardState extends State<Dashboard> {
                   ElevatedButton(
                       onPressed: scanDevices, child: const Text('Scan')),
                   ElevatedButton(
-                      onPressed: refreshDevices, child: const Text('Refresh')),
+                      onPressed: showSavedDevices,
+                      child: const Text('Saved Devices')),
                 ],
               ),
               const SizedBox(height: 20),
               Expanded(
-                child: refreshedDevices.isNotEmpty
+                child: savedDevices.isNotEmpty
                     ? ListView.builder(
-                        itemCount: refreshedDevices.length,
+                        itemCount: savedDevices.length,
                         itemBuilder: (context, index) {
                           return Card(
                             margin: EdgeInsets.all(8),
                             child: ListTile(
-                              title: Text(
-                                  "Device Name: ${refreshedDevices[index].displayName.isEmpty ? 'Unknown' : refreshedDevices[index].displayName}"),
+                              title: Row(
+                                children: [
+                                  Checkbox(
+                                    value: selectedDevices[index],
+                                    onChanged: (bool? value) {
+                                      setState(() {
+                                        selectedDevices[index] = value ?? false;
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      "Device Name: ${savedDevices[index].displayName.isEmpty ? 'Unknown' : savedDevices[index].displayName}",
+                                    ),
+                                  ),
+                                ],
+                              ),
                               subtitle: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -463,14 +573,13 @@ class _DashboardState extends State<Dashboard> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
+                                        Text("MAC: ${savedDevices[index].mac}"),
                                         Text(
-                                            "MAC: ${refreshedDevices[index].mac}"),
+                                            "IPv4: ${savedDevices[index].ipv4}"),
                                         Text(
-                                            "IPv4: ${refreshedDevices[index].ipv4}"),
+                                            "IPv6: ${savedDevices[index].ipv6}"),
                                         Text(
-                                            "IPv6: ${refreshedDevices[index].ipv6}"),
-                                        Text(
-                                          "Description: ${refreshedDevices[index].description.isEmpty ? 'No description' : refreshedDevices[index].description}",
+                                          "Description: ${savedDevices[index].description.isEmpty ? 'No description' : savedDevices[index].description}",
                                         ),
                                       ],
                                     ),
@@ -485,13 +594,13 @@ class _DashboardState extends State<Dashboard> {
                                             "Content-Type": "application/json",
                                           },
                                           body: jsonEncode({
-                                            'mac': refreshedDevices[index].mac,
+                                            'mac': savedDevices[index].mac,
                                           }),
                                         );
 
                                         if (response.statusCode == 200) {
                                           setState(() {
-                                            refreshedDevices = [];
+                                            savedDevices = [];
                                             didSomething =
                                                 "Device deleted successfully";
                                           });
@@ -503,6 +612,15 @@ class _DashboardState extends State<Dashboard> {
                                       }
                                     },
                                     child: const Text('Delete'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () async {
+                                      await showCaptureDialogue(
+                                        context,
+                                        [savedDevices[index].mac],
+                                      );
+                                    },
+                                    child: const Text('Capture'),
                                   ),
                                 ],
                               ),
@@ -517,23 +635,8 @@ class _DashboardState extends State<Dashboard> {
                               return Card(
                                 margin: EdgeInsets.all(8),
                                 child: ListTile(
-                                  title: Row(
-                                    children: [
-                                      Checkbox(
-                                        value: selectedDevices[index],
-                                        onChanged: (bool? value) {
-                                          setState(() {
-                                            selectedDevices[index] =
-                                                value ?? false;
-                                          });
-                                        },
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}",
-                                        ),
-                                      ),
-                                    ],
+                                  title: Text(
+                                    "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}",
                                   ),
                                   subtitle: Column(
                                     crossAxisAlignment:
@@ -551,21 +654,13 @@ class _DashboardState extends State<Dashboard> {
                                         children: [
                                           ElevatedButton(
                                             onPressed: () async {
-                                              // Show the dialog but don't return anything
-                                              await showUpdateDialogue(
-                                                  context,
-                                                  scannedDevices[index].ipv4,
-                                                  scannedDevices[index].mac);
+                                              await showUpdateAndSaveDialogue(
+                                                context,
+                                                scannedDevices[index].ipv4,
+                                                scannedDevices[index].mac,
+                                              );
                                             },
                                             child: const Text('Update'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              // Show the dialog but don't return anything
-                                              await showCaptureDialogue(context,
-                                                  [scannedDevices[index].mac]);
-                                            },
-                                            child: const Text('Capture'),
                                           ),
                                         ],
                                       ),
@@ -587,7 +682,7 @@ class _DashboardState extends State<Dashboard> {
                                     'No devices to show')), // both lists are empty
               ),
               const SizedBox(height: 10),
-              if (scannedDevices.isNotEmpty)
+              if (savedDevices.isNotEmpty)
                 ElevatedButton(
                   onPressed: () async {
                     List<String> selectedMacAddresses = [];
@@ -638,7 +733,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 }
-
 
 // class SignUpPage extends StatefulWidget {
 //   @override
