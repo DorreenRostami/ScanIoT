@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-String ipAddress = "http://192.168.196.159:5000";
+String ipAddress = "http://192.168.123.159:5000";
 
 void main() {
   runApp(HomeGuardApp());
@@ -103,14 +103,27 @@ class _LoginPageState extends State<LoginPage> {
                     String username = _usernameController.text;
                     String password = _passwordController.text;
                     var url = Uri.parse('$ipAddress/login');
-                    var response = await http.post(url,
-                        body: {'username': username, 'password': password});
-                    if (response.statusCode != 401) {
-                      Navigator.pushNamed(context, '/dashboard',
-                          arguments: username);
-                    } else {
+                    try {
+                      var response = await http.post(url,
+                          body: {'username': username, 'password': password});
+                      if (response.statusCode == 302) {
+                        setState(() {
+                          _errorMessage = '';
+                        });
+                        Navigator.pushNamed(context, '/dashboard',
+                            arguments: username);
+                      } else {
+                        setState(() {
+                          _errorMessage = 'Invalid username or password';
+                        });
+                      }
+                    } on SocketException {
                       setState(() {
-                        _errorMessage = 'Invalid username or password';
+                        _errorMessage = 'Network unreachable. Please check the IP address.';
+                      });
+                    } catch (e) {
+                      setState(() {
+                        _errorMessage = 'An error occurred';
                       });
                     }
                   }
@@ -162,6 +175,7 @@ class _DashboardState extends State<Dashboard> {
             savedDevices = (data["records"] as List)
                 .map((deviceJson) => Device.savedFromJson(deviceJson))
                 .toList();
+            selectedDevices = List<bool>.filled(savedDevices.length, false);
           });
         } else {
           print(
@@ -194,7 +208,7 @@ class _DashboardState extends State<Dashboard> {
             scannedDevices = (data["connected_devices"] as List)
                 .map((deviceJson) => Device.scanFromJson(deviceJson))
                 .toList();
-            selectedDevices = List<bool>.filled(scannedDevices.length, false);
+
           });
         } else {
           print('Failed to scan devices. Status code: ${response.statusCode}');
@@ -463,8 +477,6 @@ class _DashboardState extends State<Dashboard> {
                         'selected_devices': macAddresses,
                       };
                     }
-
-                    // Add additional fields
                     requestBody['filename'] = fileNameController.text;
                     requestBody['packets'] = numberController.text;
 
@@ -475,6 +487,9 @@ class _DashboardState extends State<Dashboard> {
                       },
                       body: jsonEncode(requestBody), // Encode the entire map
                     );
+                    print("--------------");
+                    print(response);
+                    print("---------------");
 
                     if (response.statusCode == 200) {
                       scannedDevices = [];
