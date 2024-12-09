@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-const String ipAddress = "http://192.168.196.159:5000";
+String ipAddress = "http://192.168.196.159:5000";
 
 void main() {
   runApp(HomeGuardApp());
@@ -25,7 +25,6 @@ class HomeGuardApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => LoginPage(),
-        // '/signup': (context) => SignUpPage(),
         '/dashboard': (context) => Dashboard(),
       },
     );
@@ -39,6 +38,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _ipAddressController = TextEditingController(text: ipAddress);
   TextEditingController _usernameController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
   String _errorMessage = '';
@@ -58,6 +58,22 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
+              TextFormField(
+                controller: _ipAddressController,
+                decoration: InputDecoration(labelText: 'Server IP Address'),
+                onChanged: (value) {
+                  setState(() {
+                    ipAddress = value;
+                  });
+                },
+                validator: (value) {
+                  if (value!.isEmpty) {
+                    return 'Please enter the IP address';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 20),
               TextFormField(
                 controller: _usernameController,
                 decoration: InputDecoration(labelText: 'Username'),
@@ -107,22 +123,6 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(color: Colors.red),
               ),
               SizedBox(height: 10),
-              // Row(
-              //   mainAxisAlignment: MainAxisAlignment.center,
-              //   children: [
-              //     const Text("Don't have an account? "),
-              //     GestureDetector(
-              //       onTap: () {
-              //         Navigator.pushNamed(context, '/signup');
-              //       },
-              //       child: const Text(
-              //         'Sign Up',
-              //         style: TextStyle(
-              //             fontWeight: FontWeight.bold, color: Colors.blue),
-              //       ),
-              //     ),
-              //   ],
-              // ),
             ],
           ),
         ),
@@ -642,7 +642,8 @@ class _DashboardState extends State<Dashboard> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: <Widget>[
-                                      Text("MAC: ${scannedDevices[index].mac}"),
+                                      Text("MAC Address: ${scannedDevices[index].mac}"),
+                                      Text("Vendor: ${scannedDevices[index].vendor}"),
                                       const Text("IP Addresses:"),
                                       Text(
                                           " • IPv4: ${scannedDevices[index].ipv4}"),
@@ -660,7 +661,7 @@ class _DashboardState extends State<Dashboard> {
                                                 scannedDevices[index].mac,
                                               );
                                             },
-                                            child: const Text('Update'),
+                                            child: const Text('Update & Save'),
                                           ),
                                         ],
                                       ),
@@ -686,9 +687,9 @@ class _DashboardState extends State<Dashboard> {
                 ElevatedButton(
                   onPressed: () async {
                     List<String> selectedMacAddresses = [];
-                    for (int i = 0; i < scannedDevices.length; i++) {
+                    for (int i = 0; i < savedDevices.length; i++) {
                       if (selectedDevices[i]) {
-                        selectedMacAddresses.add(scannedDevices[i].mac);
+                        selectedMacAddresses.add(savedDevices[i].mac);
                       }
                     }
                     if (selectedMacAddresses.isNotEmpty) {

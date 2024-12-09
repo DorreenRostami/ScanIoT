@@ -4,6 +4,7 @@ class Device {
   final String ipv6;
   final String displayName;
   final String description;
+  final String vendor;
 
   Device({
     required this.mac,
@@ -11,6 +12,7 @@ class Device {
     this.ipv6 = "",
     this.displayName = "",
     this.description = "",
+    this.vendor = "",
   });
 
   factory Device.savedFromJson(List<dynamic> json) {
@@ -32,7 +34,7 @@ class Device {
           ? json['ips']['IPv6'][0] as String
           : "",
       displayName: json['display_name'] ?? "",
-      description: "",
+      vendor: json['vendor'],
     );
   }
 }
