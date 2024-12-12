@@ -5,6 +5,7 @@ class Device {
   final String displayName;
   final String description;
   final String vendor;
+  final String capturedPackets;
 
   Device({
     required this.mac,
@@ -13,6 +14,7 @@ class Device {
     this.displayName = "",
     this.description = "",
     this.vendor = "",
+    this.capturedPackets = "0/0"
   });
 
   factory Device.savedFromJson(List<dynamic> json) {

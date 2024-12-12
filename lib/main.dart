@@ -99,6 +99,9 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
+                  Navigator.pushNamed(context, '/dashboard',
+                      arguments: "admin");
+                  return;
                   if (_formKey.currentState!.validate()) {
                     String username = _usernameController.text;
                     String password = _passwordController.text;
@@ -153,11 +156,13 @@ class _DashboardState extends State<Dashboard> {
   List<Device> scannedDevices = [];
   List<Device> savedDevices = [];
   List<bool> selectedDevices = [];
+  List<Device> capturedDevices = [];
   String didSomething = "";
 
-  Future<void> showSavedDevices() async {
+  Future<void> getSavedDevices() async {
     didSomething = "";
     scannedDevices = [];
+    capturedDevices = [];
     var url = '$ipAddress/refresh';
     try {
       final response = await http.post(
@@ -190,6 +195,7 @@ class _DashboardState extends State<Dashboard> {
   Future<void> scanDevices() async {
     didSomething = "";
     savedDevices = [];
+    capturedDevices = [];
     var url = '$ipAddress/dashboard';
     try {
       final response = await http.post(
@@ -219,6 +225,36 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  Future<void> getCapturedDevices() async {
+    didSomething = "";
+    savedDevices = [];
+    scannedDevices = [];
+
+    print("here");
+
+    capturedDevices = [
+      Device(
+        mac: "00:1A:2B:3C:4D:5E",
+        ipv4: "192.168.0.1",
+        ipv6: "fe80::1a2b:3c4d:5e6f",
+        displayName: "Router 1",
+        description: "Office Router",
+        vendor: "Cisco",
+        capturedPackets: "75/100",
+      ),
+      Device(
+        mac: "00:1A:2B:3C:4D:6F",
+        ipv4: "192.168.0.2",
+        ipv6: "fe80::1a2b:3c4d:6f7g",
+        displayName: "Switch",
+        description: "Office Switch",
+        vendor: "Netgear",
+        capturedPackets: "40/50",
+      ),
+    ];
+
+  }
+
   File? selectedImage; // Holds the selected image file
   String selectedFileName = "No file chosen"; // Default file text
 
@@ -230,7 +266,7 @@ class _DashboardState extends State<Dashboard> {
     File? dialogSelectedImage;
     String dialogSelectedFileName = "No file chosen";
 
-    // Method to open the camera and capture an image
+    //open the camera and capture an image
     Future<void> openCamera(StateSetter dialogSetState) async {
       final ImagePicker picker = ImagePicker();
       final XFile? photo = await picker.pickImage(source: ImageSource.camera);
@@ -488,14 +524,19 @@ class _DashboardState extends State<Dashboard> {
                       body: jsonEncode(requestBody), // Encode the entire map
                     );
                     print("--------------");
-                    print(response);
+                    print(response.body);
                     print("---------------");
 
                     if (response.statusCode == 200) {
                       scannedDevices = [];
                       savedDevices = [];
                       didSomething = "Packets captured succesfully";
-                    } else {
+                    } else if (response.statusCode == 400) {
+                      scannedDevices = [];
+                      savedDevices = [];
+                      didSomething = "Error. Device not responding.";
+                    }
+                    else {
                       print('Response: ${response.body}');
                     }
 
@@ -520,6 +561,7 @@ class _DashboardState extends State<Dashboard> {
       },
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -547,156 +589,18 @@ class _DashboardState extends State<Dashboard> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton(
-                      onPressed: scanDevices, child: const Text('Scan')),
+                      onPressed: scanDevices,
+                      child: const Text('Scan')),
                   ElevatedButton(
-                      onPressed: showSavedDevices,
+                      onPressed: getSavedDevices,
                       child: const Text('Saved Devices')),
+                  ElevatedButton(
+                      onPressed: getCapturedDevices,
+                      child: const Text('Captured Packets')),
                 ],
               ),
               const SizedBox(height: 20),
-              Expanded(
-                child: savedDevices.isNotEmpty
-                    ? ListView.builder(
-                        itemCount: savedDevices.length,
-                        itemBuilder: (context, index) {
-                          return Card(
-                            margin: EdgeInsets.all(8),
-                            child: ListTile(
-                              title: Row(
-                                children: [
-                                  Checkbox(
-                                    value: selectedDevices[index],
-                                    onChanged: (bool? value) {
-                                      setState(() {
-                                        selectedDevices[index] = value ?? false;
-                                      });
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      "Device Name: ${savedDevices[index].displayName.isEmpty ? 'Unknown' : savedDevices[index].displayName}",
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text("MAC: ${savedDevices[index].mac}"),
-                                        Text(
-                                            "IPv4: ${savedDevices[index].ipv4}"),
-                                        Text(
-                                            "IPv6: ${savedDevices[index].ipv6}"),
-                                        Text(
-                                          "Description: ${savedDevices[index].description.isEmpty ? 'No description' : savedDevices[index].description}",
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () async {
-                                      String url = '$ipAddress/delete_device';
-                                      try {
-                                        final response = await http.post(
-                                          Uri.parse(url),
-                                          headers: {
-                                            "Content-Type": "application/json",
-                                          },
-                                          body: jsonEncode({
-                                            'mac': savedDevices[index].mac,
-                                          }),
-                                        );
-
-                                        if (response.statusCode == 200) {
-                                          setState(() {
-                                            savedDevices = [];
-                                            didSomething =
-                                                "Device deleted successfully";
-                                          });
-                                        } else {
-                                          print('Failed. ${response.body}');
-                                        }
-                                      } catch (e) {
-                                        print('Error: $e');
-                                      }
-                                    },
-                                    child: const Text('Delete'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () async {
-                                      await showCaptureDialogue(
-                                        context,
-                                        [savedDevices[index].mac],
-                                      );
-                                    },
-                                    child: const Text('Capture'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    : scannedDevices.isNotEmpty
-                        ? ListView.builder(
-                            itemCount: scannedDevices.length,
-                            itemBuilder: (context, index) {
-                              return Card(
-                                margin: EdgeInsets.all(8),
-                                child: ListTile(
-                                  title: Text(
-                                    "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}",
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Text("MAC Address: ${scannedDevices[index].mac}"),
-                                      Text("Vendor: ${scannedDevices[index].vendor}"),
-                                      const Text("IP Addresses:"),
-                                      Text(
-                                          " • IPv4: ${scannedDevices[index].ipv4}"),
-                                      Text(
-                                          " • IPv6: ${scannedDevices[index].ipv6}"),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              await showUpdateAndSaveDialogue(
-                                                context,
-                                                scannedDevices[index].ipv4,
-                                                scannedDevices[index].mac,
-                                              );
-                                            },
-                                            child: const Text('Update & Save'),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          )
-                        : didSomething != ""
-                            ? Center(
-                                child: Text(
-                                  didSomething,
-                                  style: const TextStyle(color: Colors.green),
-                                ),
-                              )
-                            : const Center(
-                                child: Text(
-                                    'No devices to show')), // both lists are empty
-              ),
+              Expanded(child: _buildDeviceList()), //selects what list to show
               const SizedBox(height: 10),
               if (savedDevices.isNotEmpty)
                 ElevatedButton(
@@ -748,74 +652,217 @@ class _DashboardState extends State<Dashboard> {
       ),
     );
   }
-}
 
-// class SignUpPage extends StatefulWidget {
-//   @override
-//   _SignUpPageState createState() => _SignUpPageState();
-// }
-//
-// class _SignUpPageState extends State<SignUpPage> {
-//   final _formKey = GlobalKey<FormState>();
-//   TextEditingController _usernameController = TextEditingController();
-//   TextEditingController _passwordController = TextEditingController();
-//   String _errorMessage = '';
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         backgroundColor: const Color.fromARGB(84, 30, 30, 176),
-//         title: const Text('Sign Up'),
-//       ),
-//       body: Padding(
-//         padding: EdgeInsets.all(20.0),
-//         child: Form(
-//           key: _formKey,
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.stretch,
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: <Widget>[
-//               TextFormField(
-//                 controller: _usernameController,
-//                 decoration: InputDecoration(labelText: 'Username'),
-//                 validator: (value) {
-//                   if (value!.isEmpty) {
-//                     return 'Please enter your username';
-//                   } else if (Database.isExistingUser(value)) {
-//                     return 'Username already exists';
-//                   }
-//                   return null;
-//                 },
-//               ),
-//               SizedBox(height: 20),
-//               TextFormField(
-//                 controller: _passwordController,
-//                 decoration: InputDecoration(labelText: 'Password'),
-//                 obscureText: true,
-//                 validator: (value) {
-//                   if (value!.isEmpty) {
-//                     return 'Please enter your password';
-//                   }
-//                   return null;
-//                 },
-//               ),
-//               SizedBox(height: 20),
-//               ElevatedButton(
-//                 onPressed: () {
-//                   if (_formKey.currentState!.validate()) {
-//                     String username = _usernameController.text;
-//                     String password = _passwordController.text;
-//                     Database.addUser(username, password);
-//                     Navigator.pop(context);
-//                   }
-//                 },
-//                 child: Text('Sign Up'),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
+  Widget _buildDeviceList() {
+    print("1");
+    if (savedDevices.isNotEmpty) {
+      print("2");
+      return _buildSavedDevicesList();
+    } else if (scannedDevices.isNotEmpty) {
+      print("3");
+      return _buildScannedDevicesList();
+    } else if (capturedDevices.isNotEmpty) {
+      print("here now");
+      return _buildCapturedDevicesList();
+    } else if (didSomething.isNotEmpty) {
+      return Center(child: Text(didSomething, style: const TextStyle(color: Colors.green)));
+    } else {
+      return const Center(child: Text('No devices to show'));
+    }
+  }
+
+  Widget _buildSavedDevicesList() {
+    return ListView.builder(
+      itemCount: savedDevices.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: EdgeInsets.all(8),
+          child: ListTile(
+            title: Row(
+              children: [
+                Checkbox(
+                  value: selectedDevices[index],
+                  onChanged: (bool? value) {
+                    setState(() {
+                      selectedDevices[index] = value ?? false;
+                    });
+                  },
+                ),
+                Expanded(
+                  child: Text(
+                    "Device Name: ${savedDevices[index].displayName.isEmpty ? 'Unknown' : savedDevices[index].displayName}",
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Row(
+              mainAxisAlignment:
+              MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                    children: [
+                      Text("MAC: ${savedDevices[index].mac}"),
+                      Text(
+                          "IPv4: ${savedDevices[index].ipv4}"),
+                      Text(
+                          "IPv6: ${savedDevices[index].ipv6}"),
+                      Text(
+                        "Description: ${savedDevices[index].description.isEmpty ? 'No description' : savedDevices[index].description}",
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    String url = '$ipAddress/delete_device';
+                    try {
+                      final response = await http.post(
+                        Uri.parse(url),
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: jsonEncode({
+                          'mac': savedDevices[index].mac,
+                        }),
+                      );
+
+                      if (response.statusCode == 200) {
+                        setState(() {
+                          savedDevices = [];
+                          didSomething =
+                          "Device deleted successfully";
+                        });
+                      } else {
+                        print('Failed. ${response.body}');
+                      }
+                    } catch (e) {
+                      print('Error: $e');
+                    }
+                  },
+                  child: const Text('Delete'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await showCaptureDialogue(
+                      context,
+                      [savedDevices[index].mac],
+                    );
+                  },
+                  child: const Text('Capture'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildScannedDevicesList() {
+    return ListView.builder(
+      itemCount: scannedDevices.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: EdgeInsets.all(8),
+          child: ListTile(
+            title: Text(
+              "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}",
+            ),
+            subtitle: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: <Widget>[
+                Text("MAC Address: ${scannedDevices[index].mac}"),
+                Text("Vendor: ${scannedDevices[index].vendor}"),
+                const Text("IP Addresses:"),
+                Text(
+                    " • IPv4: ${scannedDevices[index].ipv4}"),
+                Text(
+                    " • IPv6: ${scannedDevices[index].ipv6}"),
+                Row(
+                  mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () async {
+                        await showUpdateAndSaveDialogue(
+                          context,
+                          scannedDevices[index].ipv4,
+                          scannedDevices[index].mac,
+                        );
+                      },
+                      child: const Text('Update & Save'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCapturedDevicesList() {
+    return ListView.builder(
+      itemCount: capturedDevices.length,
+      itemBuilder: (context, index) {
+        final device = capturedDevices[index];
+
+        //Parse capturedPackets to calculate progress percentage
+        final packetParts = device.capturedPackets.split('/');
+        final int captured = int.tryParse(packetParts[0]) ?? 0;
+        final int total = int.tryParse(packetParts[1]) ?? 1; // Avoid division by zero
+        final double progress = (captured / total).clamp(0.0, 1.0);
+        final int percentage = (progress * 100).toInt();
+
+        return Card(
+          margin: const EdgeInsets.all(8),
+          child: ListTile(
+            title: Text(
+              "Device Name: ${device.displayName.isEmpty ? 'Unknown' : device.displayName}",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Captured Packets: ${device.capturedPackets}",
+                          ),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: progress, //between 0.0 and 1.0.
+                            minHeight: 8,
+                            backgroundColor: Colors.grey[300],
+                            color: Colors.blue,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16.0),
+                      child: Text(
+                        "$percentage%",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
