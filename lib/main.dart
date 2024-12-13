@@ -232,6 +232,7 @@ class _DashboardState extends State<Dashboard> {
 
     print("here");
 
+    setState(() {
     capturedDevices = [
       Device(
         mac: "00:1A:2B:3C:4D:5E",
@@ -252,6 +253,7 @@ class _DashboardState extends State<Dashboard> {
         capturedPackets: "40/50",
       ),
     ];
+    });
 
   }
 
@@ -528,11 +530,9 @@ class _DashboardState extends State<Dashboard> {
                     print("---------------");
 
                     if (response.statusCode == 200) {
-                      scannedDevices = [];
                       savedDevices = [];
                       didSomething = "Packets captured succesfully";
                     } else if (response.statusCode == 400) {
-                      scannedDevices = [];
                       savedDevices = [];
                       didSomething = "Error. Device not responding.";
                     }

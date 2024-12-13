@@ -1,16 +1,13 @@
-# project1
+# Flutter Application for ScanIoT
 
-A new Flutter project.
+## Overview
+This project focuses on the development of a mobile application for device management and packet capture. The application provides users with an intuitive dashboard to manage scanned, saved, and captured devices in a network.
 
-## Getting Started
+## Features
+- **Device Management:** Seamlessly manage scanned, saved, and captured devices through a user-friendly interface.
+- **Packet Capture:** Perform packet capture operations and monitor progress in real-time.
+- **HTTP API Integration:** Communicate with the back-end server to perform various device-related actions.
+- **Responsive UI:** Built with Flutter’s declarative framework for a smooth and efficient user experience.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Objective
+The goal is to create an efficient and user-friendly tool for monitoring and managing network devices, optimized for both functionality and usability.
