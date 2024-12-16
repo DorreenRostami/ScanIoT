@@ -5,7 +5,8 @@ class Device {
   final String displayName;
   final String description;
   final String vendor;
-  final String capturedPackets;
+  final int progressedPackets;
+  final int totalPackets;
 
   Device({
     required this.mac,
@@ -14,7 +15,8 @@ class Device {
     this.displayName = "",
     this.description = "",
     this.vendor = "",
-    this.capturedPackets = "0/0"
+    this.progressedPackets = 0,
+    this.totalPackets = 0
   });
 
   factory Device.savedFromJson(List<dynamic> json) {
@@ -39,4 +41,13 @@ class Device {
       vendor: json['vendor'],
     );
   }
+
+  factory Device.capturedFromJson(Map<String, dynamic> json) {
+    return Device(
+      mac: json['mac_address'] ?? '',
+      progressedPackets: json['progress'] ?? 0,
+      totalPackets: json['total_packets'] ?? 0,
+    );
+  }
+
 }

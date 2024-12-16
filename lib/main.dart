@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-String ipAddress = "http://192.168.123.159:5000";
+String ipAddress = "http://192.168.224.159:5000";
 
 void main() {
   runApp(HomeGuardApp());
@@ -214,7 +214,6 @@ class _DashboardState extends State<Dashboard> {
             scannedDevices = (data["connected_devices"] as List)
                 .map((deviceJson) => Device.scanFromJson(deviceJson))
                 .toList();
-
           });
         } else {
           print('Failed to scan devices. Status code: ${response.statusCode}');
@@ -230,40 +229,44 @@ class _DashboardState extends State<Dashboard> {
     savedDevices = [];
     scannedDevices = [];
 
-    print("here");
+    var url = '$ipAddress/get_progress';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      );
 
-    setState(() {
-    capturedDevices = [
-      Device(
-        mac: "00:1A:2B:3C:4D:5E",
-        ipv4: "192.168.0.1",
-        ipv6: "fe80::1a2b:3c4d:5e6f",
-        displayName: "Router 1",
-        description: "Office Router",
-        vendor: "Cisco",
-        capturedPackets: "75/100",
-      ),
-      Device(
-        mac: "00:1A:2B:3C:4D:6F",
-        ipv4: "192.168.0.2",
-        ipv6: "fe80::1a2b:3c4d:6f7g",
-        displayName: "Switch",
-        description: "Office Switch",
-        vendor: "Netgear",
-        capturedPackets: "40/50",
-      ),
-    ];
-    });
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        if (data["progress"] != null && data["progress"] is List) {
+          setState(() {
+            capturedDevices = (data["progress"] as List)
+                .map((deviceJson) => Device.capturedFromJson(deviceJson))
+                .toList();
+          });
+        } else {
+          print('Invalid progress data format.');
+        }
+      } else {
+        print('Failed to fetch captured devices. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching captured devices: $e');
+    }
 
   }
 
   File? selectedImage; // Holds the selected image file
   String selectedFileName = "No file chosen"; // Default file text
 
-  Future<void> showUpdateAndSaveDialogue(
-      BuildContext context, String ip, String mac) async {
-    TextEditingController nameController = TextEditingController();
-    TextEditingController descriptionController = TextEditingController();
+  Future<void> showUpdateAndSaveDialog(
+      BuildContext context, Device device) async {
+    String ip = device.ipv4;
+    String mac = device.mac;
+    TextEditingController nameController = TextEditingController(text: device.displayName);
+    TextEditingController descriptionController = TextEditingController(text: device.description);
 
     File? dialogSelectedImage;
     String dialogSelectedFileName = "No file chosen";
@@ -275,7 +278,7 @@ class _DashboardState extends State<Dashboard> {
 
       if (photo != null) {
         dialogSetState(() {
-          dialogSelectedImage = File(photo.path); // Update dialog state
+          dialogSelectedImage = File(photo.path);
           dialogSelectedFileName = photo.name; // Update file name
         });
       }
@@ -346,7 +349,7 @@ class _DashboardState extends State<Dashboard> {
                         ElevatedButton(
                           onPressed: () =>
                               showImageUploadDialog(dialogSetState),
-                          child: const Text('Choose File'),
+                          child: const Text('Add Picture'),
                         ),
                       ],
                     ),
@@ -445,7 +448,7 @@ class _DashboardState extends State<Dashboard> {
     });
   }
 
-  Future<void> showCaptureDialogue(
+  Future<void> showCaptureDialog(
       BuildContext context, List<String> macAddresses) async {
     TextEditingController fileNameController = TextEditingController();
     TextEditingController numberController = TextEditingController();
@@ -518,29 +521,32 @@ class _DashboardState extends State<Dashboard> {
                     requestBody['filename'] = fileNameController.text;
                     requestBody['packets'] = numberController.text;
 
-                    final response = await http.post(
+                    http.post(
                       Uri.parse(url),
                       headers: {
                         "Content-Type": "application/json",
                       },
                       body: jsonEncode(requestBody), // Encode the entire map
                     );
-                    print("--------------");
-                    print(response.body);
-                    print("---------------");
-
-                    if (response.statusCode == 200) {
-                      savedDevices = [];
-                      didSomething = "Packets captured succesfully";
-                    } else if (response.statusCode == 400) {
-                      savedDevices = [];
-                      didSomething = "Error. Device not responding.";
-                    }
-                    else {
-                      print('Response: ${response.body}');
-                    }
+                    // print("--------------");
+                    // print(response.body);
+                    // print("---------------");
+                    //
+                    // if (response.statusCode == 200) {
+                    //   savedDevices = [];
+                    //   didSomething = "Packets captured succesfully";
+                    // } else if (response.statusCode == 400) {
+                    //   savedDevices = [];
+                    //   didSomething = "Error. Device not responding.";
+                    // }
+                    // else {
+                    //   print('Response: ${response.body}');
+                    // }
 
                     Navigator.of(context).pop();
+                    Future.delayed(const Duration(seconds: 1), () {
+                      getCapturedDevices();
+                    });
                   } catch (e) {
                     print('Error occurred: $e');
                     Navigator.of(context).pop();
@@ -612,7 +618,7 @@ class _DashboardState extends State<Dashboard> {
                       }
                     }
                     if (selectedMacAddresses.isNotEmpty) {
-                      await showCaptureDialogue(context,
+                      await showCaptureDialog(context,
                           selectedMacAddresses); // Assuming all devices have the same IP
                     } else {
                       // Handle case where no devices are selected
@@ -654,21 +660,62 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildDeviceList() {
-    print("1");
+    print("building a list");
     if (savedDevices.isNotEmpty) {
-      print("2");
       return _buildSavedDevicesList();
     } else if (scannedDevices.isNotEmpty) {
-      print("3");
       return _buildScannedDevicesList();
     } else if (capturedDevices.isNotEmpty) {
-      print("here now");
       return _buildCapturedDevicesList();
     } else if (didSomething.isNotEmpty) {
       return Center(child: Text(didSomething, style: const TextStyle(color: Colors.green)));
     } else {
       return const Center(child: Text('No devices to show'));
     }
+  }
+
+  Widget _buildScannedDevicesList() {
+    return ListView.builder(
+      itemCount: scannedDevices.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: EdgeInsets.all(8),
+          child: ListTile(
+            title: Text(
+              "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}",
+            ),
+            subtitle: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: <Widget>[
+                Text("MAC Address: ${scannedDevices[index].mac}"),
+                Text("Vendor: ${scannedDevices[index].vendor}"),
+                const Text("IP Addresses:"),
+                Text(
+                    " • IPv4: ${scannedDevices[index].ipv4}"),
+                Text(
+                    " • IPv6: ${scannedDevices[index].ipv6}"),
+                Row(
+                  mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () async {
+                        await showUpdateAndSaveDialog(
+                          context,
+                          scannedDevices[index]
+                        );
+                      },
+                      child: const Text('Update & Save'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildSavedDevicesList() {
@@ -746,57 +793,12 @@ class _DashboardState extends State<Dashboard> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await showCaptureDialogue(
+                    await showCaptureDialog(
                       context,
                       [savedDevices[index].mac],
                     );
                   },
                   child: const Text('Capture'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildScannedDevicesList() {
-    return ListView.builder(
-      itemCount: scannedDevices.length,
-      itemBuilder: (context, index) {
-        return Card(
-          margin: EdgeInsets.all(8),
-          child: ListTile(
-            title: Text(
-              "Device Name: ${scannedDevices[index].displayName.isEmpty ? 'Unknown' : scannedDevices[index].displayName}",
-            ),
-            subtitle: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: <Widget>[
-                Text("MAC Address: ${scannedDevices[index].mac}"),
-                Text("Vendor: ${scannedDevices[index].vendor}"),
-                const Text("IP Addresses:"),
-                Text(
-                    " • IPv4: ${scannedDevices[index].ipv4}"),
-                Text(
-                    " • IPv6: ${scannedDevices[index].ipv6}"),
-                Row(
-                  mainAxisAlignment:
-                  MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        await showUpdateAndSaveDialogue(
-                          context,
-                          scannedDevices[index].ipv4,
-                          scannedDevices[index].mac,
-                        );
-                      },
-                      child: const Text('Update & Save'),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -812,10 +814,8 @@ class _DashboardState extends State<Dashboard> {
       itemBuilder: (context, index) {
         final device = capturedDevices[index];
 
-        //Parse capturedPackets to calculate progress percentage
-        final packetParts = device.capturedPackets.split('/');
-        final int captured = int.tryParse(packetParts[0]) ?? 0;
-        final int total = int.tryParse(packetParts[1]) ?? 1; // Avoid division by zero
+        final int captured = device.progressedPackets;
+        final int total = device.totalPackets > 0 ? device.totalPackets : 1;
         final double progress = (captured / total).clamp(0.0, 1.0);
         final int percentage = (progress * 100).toInt();
 
@@ -837,11 +837,11 @@ class _DashboardState extends State<Dashboard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Captured Packets: ${device.capturedPackets}",
+                            "Captured Packets: $captured / $total",
                           ),
                           const SizedBox(height: 4),
                           LinearProgressIndicator(
-                            value: progress, //between 0.0 and 1.0.
+                            value: progress,
                             minHeight: 8,
                             backgroundColor: Colors.grey[300],
                             color: Colors.blue,
