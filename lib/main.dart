@@ -1,11 +1,11 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'device.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:async';
 
 String ipAddress = "http://192.168.224.159:5000";
 
@@ -31,11 +31,13 @@ class HomeGuardApp extends StatelessWidget {
   }
 }
 
+/// Login Page
 class LoginPage extends StatefulWidget {
   @override
   _LoginPageState createState() => _LoginPageState();
 }
 
+/// Login Page State
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _ipAddressController = TextEditingController(text: ipAddress);
@@ -147,19 +149,60 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
+
+/// Dashboard
 class Dashboard extends StatefulWidget {
   @override
   _DashboardState createState() => _DashboardState();
 }
 
+
+/// Dashboard State
 class _DashboardState extends State<Dashboard> {
   List<Device> scannedDevices = [];
   List<Device> savedDevices = [];
   List<bool> selectedDevices = [];
   List<Device> capturedDevices = [];
   String didSomething = "";
+  Timer? _updateTimer;
 
+
+  /// Scan for devices connected to the network
+  Future<void> scanDevices() async {
+    _stopUpdateTimer();
+    didSomething = "";
+    savedDevices = [];
+    capturedDevices = [];
+    var url = '$ipAddress/dashboard';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        if (data["connected_devices"] != null &&
+            data["connected_devices"] is List) {
+          setState(() {
+            scannedDevices = (data["connected_devices"] as List)
+                .map((deviceJson) => Device.scanFromJson(deviceJson))
+                .toList();
+          });
+        } else {
+          print('Failed to scan devices. Status code: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Error scanning devices: $e');
+    }
+  }
+
+  /// Get list of saved devices
   Future<void> getSavedDevices() async {
+    _stopUpdateTimer();
     didSomething = "";
     scannedDevices = [];
     capturedDevices = [];
@@ -173,7 +216,6 @@ class _DashboardState extends State<Dashboard> {
       );
 
       if (response.statusCode == 200) {
-        print(response.body);
         var data = jsonDecode(response.body);
         if (data["records"] != null && data["records"] is List) {
           setState(() {
@@ -192,42 +234,35 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  Future<void> scanDevices() async {
-    didSomething = "";
-    savedDevices = [];
-    capturedDevices = [];
-    var url = '$ipAddress/dashboard';
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      );
-
-      if (response.statusCode == 200) {
-        print(response.body);
-        var data = jsonDecode(response.body);
-        if (data["connected_devices"] != null &&
-            data["connected_devices"] is List) {
-          setState(() {
-            scannedDevices = (data["connected_devices"] as List)
-                .map((deviceJson) => Device.scanFromJson(deviceJson))
-                .toList();
-          });
-        } else {
-          print('Failed to scan devices. Status code: ${response.statusCode}');
-        }
-      }
-    } catch (e) {
-      print('Error scanning devices: $e');
-    }
-  }
-
+  /// Get list of devices that packets are being/have been captured for
   Future<void> getCapturedDevices() async {
     didSomething = "";
     savedDevices = [];
     scannedDevices = [];
+
+    // setState(() {
+    // capturedDevices = [
+    //   Device(
+    //     mac: '00:14:22:01:23:45',
+    //     displayName: 'Pixel 4a',
+    //     progressedPackets: 105,
+    //     totalPackets: 900,
+    //   ),
+    //   Device(
+    //     mac: '00:14:22:01:23:46',
+    //     displayName: 'MacBook Pro',
+    //     progressedPackets: 1200,
+    //     totalPackets: 2000,
+    //   ),
+    //   Device(
+    //     mac: '00:14:22:01:23:47',
+    //     displayName: 'Dor\'s Samsung',
+    //     progressedPackets: 2700,
+    //     totalPackets: 2700,
+    //   ),
+    // ];
+    // });
+    // return;
 
     var url = '$ipAddress/get_progress';
     try {
@@ -255,12 +290,38 @@ class _DashboardState extends State<Dashboard> {
     } catch (e) {
       print('Error fetching captured devices: $e');
     }
-
   }
 
-  File? selectedImage; // Holds the selected image file
-  String selectedFileName = "No file chosen"; // Default file text
+  /// Start timer which will update the captured devices list every 15 sec
+  void startCapturedDevicesUpdate() {
+    _stopUpdateTimer();
+    _updateTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      getCapturedDevices();
+    });
+    getCapturedDevices();
+  }
 
+  /// Method to stop the timer
+  void _stopUpdateTimer() {
+    if (_updateTimer != null) {
+      _updateTimer!.cancel();
+      _updateTimer = null;
+    }
+  }
+
+  /// Ensure timer is canceled when the widget is disposed
+  @override
+  void dispose() {
+    _stopUpdateTimer();
+    super.dispose();
+  }
+
+
+
+  File? selectedImage; // Holds the selected image file
+  String selectedFileName = "No file chosen"; // Default file name text
+
+  /// Dialog for updating device name, description, and image
   Future<void> showUpdateAndSaveDialog(
       BuildContext context, Device device) async {
     String ip = device.ipv4;
@@ -448,6 +509,7 @@ class _DashboardState extends State<Dashboard> {
     });
   }
 
+  /// Dialog for capturing packets (enter file name and number of packets)
   Future<void> showCaptureDialog(
       BuildContext context, List<String> macAddresses) async {
     TextEditingController fileNameController = TextEditingController();
@@ -526,26 +588,12 @@ class _DashboardState extends State<Dashboard> {
                       headers: {
                         "Content-Type": "application/json",
                       },
-                      body: jsonEncode(requestBody), // Encode the entire map
+                      body: jsonEncode(requestBody),
                     );
-                    // print("--------------");
-                    // print(response.body);
-                    // print("---------------");
-                    //
-                    // if (response.statusCode == 200) {
-                    //   savedDevices = [];
-                    //   didSomething = "Packets captured succesfully";
-                    // } else if (response.statusCode == 400) {
-                    //   savedDevices = [];
-                    //   didSomething = "Error. Device not responding.";
-                    // }
-                    // else {
-                    //   print('Response: ${response.body}');
-                    // }
 
                     Navigator.of(context).pop();
                     Future.delayed(const Duration(seconds: 1), () {
-                      getCapturedDevices();
+                      startCapturedDevicesUpdate();
                     });
                   } catch (e) {
                     print('Error occurred: $e');
@@ -568,7 +616,12 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
+  /// Stop packet capture when stop button is pressed
+  void stopCaptureForDevice(Device device) {
+    print("Stopping capture for device: ${device.displayName}");
+  }
 
+  /// Build the dashboard widgets
   @override
   Widget build(BuildContext context) {
     final String username =
@@ -601,7 +654,7 @@ class _DashboardState extends State<Dashboard> {
                       onPressed: getSavedDevices,
                       child: const Text('Saved Devices')),
                   ElevatedButton(
-                      onPressed: getCapturedDevices,
+                      onPressed: startCapturedDevicesUpdate,
                       child: const Text('Captured Packets')),
                 ],
               ),
@@ -618,8 +671,7 @@ class _DashboardState extends State<Dashboard> {
                       }
                     }
                     if (selectedMacAddresses.isNotEmpty) {
-                      await showCaptureDialog(context,
-                          selectedMacAddresses); // Assuming all devices have the same IP
+                      await showCaptureDialog(context, selectedMacAddresses);
                     } else {
                       // Handle case where no devices are selected
                       showDialog<void>(
@@ -659,8 +711,8 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
+  // select which list to show in the dashboard
   Widget _buildDeviceList() {
-    print("building a list");
     if (savedDevices.isNotEmpty) {
       return _buildSavedDevicesList();
     } else if (scannedDevices.isNotEmpty) {
@@ -837,7 +889,7 @@ class _DashboardState extends State<Dashboard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Captured Packets: $captured / $total",
+                            "Captured Packets: $captured / ${device.totalPackets}",
                           ),
                           const SizedBox(height: 4),
                           LinearProgressIndicator(
@@ -857,6 +909,18 @@ class _DashboardState extends State<Dashboard> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: progress >= 1.0
+                        ? null // Disable the button if progress is 100%
+                        : () {
+                      stopCaptureForDevice(device);
+                    },
+                    child: const Text("Stop"),
+                  ),
                 ),
               ],
             ),

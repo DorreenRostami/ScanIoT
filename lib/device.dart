@@ -37,16 +37,17 @@ class Device {
       ipv6: (json['ips']['IPv6'] as List<dynamic>).isNotEmpty
           ? json['ips']['IPv6'][0] as String
           : "",
-      displayName: json['display_name'] ?? "",
+      displayName: json['display_name'],
       vendor: json['vendor'],
+      description: json['description']
     );
   }
 
   factory Device.capturedFromJson(Map<String, dynamic> json) {
     return Device(
-      mac: json['mac_address'] ?? '',
-      progressedPackets: json['progress'] ?? 0,
-      totalPackets: json['total_packets'] ?? 0,
+      mac: json['mac_address'],
+      progressedPackets: json['progress'],
+      totalPackets: json['total_packets'],
     );
   }
 
