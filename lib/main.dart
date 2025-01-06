@@ -184,11 +184,6 @@ class _DashboardState extends State<Dashboard> {
         },
       );
 
-      print("-----------------");
-      print(response.statusCode);
-      print(response.body);
-      print("------------------");
-
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
         if (data["connected_devices"] != null &&
@@ -279,6 +274,11 @@ class _DashboardState extends State<Dashboard> {
           "Content-Type": "application/json",
         },
       );
+
+      // print("-------");
+      // print(response.body);
+      // print("-------");
+      // print("================");
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
@@ -660,6 +660,90 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  /// Get a list of file names (file of captured packets)
+  void getListOfCapturedFiles(BuildContext context) async {
+    String url = '$ipAddress/files_name';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+      );
+
+      print("-------");
+      print(response.body);
+      print("-------");
+      print("================");
+
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+
+        if (data["FileNames"] != null && data["FileNames"] is List) {
+          List<String> files = List<String>.from(data["FileNames"]);
+
+          showDialog(
+            context: context,
+            builder: (context) {
+              return Dialog(
+                child: Container(
+                  height: MediaQuery
+                      .of(context)
+                      .size
+                      .height * 0.5,
+                  width: MediaQuery
+                      .of(context)
+                      .size
+                      .width * 0.1,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Captured Files',
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: files.isNotEmpty
+                              ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: files
+                                .expand((file) =>
+                            [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 4.0),
+                                child: Text(file),
+                              ),
+                              const Divider(), // Line between file names
+                            ])
+                                .toList(),
+                          )
+                              : const Text('No files found.'),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        } else {
+          print('No files found.');
+        }
+      } else {
+        print('Failed to get files. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error while getting captured files: $e');
+    }
+  }
+
 
   /// Build the dashboard widgets
   @override
@@ -695,7 +779,7 @@ class _DashboardState extends State<Dashboard> {
                       child: const Text('Saved Devices')),
                   ElevatedButton(
                       onPressed: startCapturedDevicesUpdate,
-                      child: const Text('Captured Packets')),
+                      child: const Text('Capture Progress')),
                 ],
               ),
               const SizedBox(height: 20),
@@ -735,6 +819,13 @@ class _DashboardState extends State<Dashboard> {
                     }
                   },
                   child: const Text('Capture All'),
+                ),
+              if(_updateTimer != null)
+                ElevatedButton(
+                  onPressed: () async {
+                    getListOfCapturedFiles(context);
+                  },
+                  child: const Text('Show captured files'),
                 ),
               const SizedBox(height: 10),
               ElevatedButton(

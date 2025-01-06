@@ -45,6 +45,7 @@ class Device {
 
   factory Device.capturedFromJson(Map<String, dynamic> json) {
     return Device(
+      displayName: json['display_name'] ?? "",
       mac: json['mac_address'],
       progressedPackets: json['progress'],
       totalPackets: json['total_packets'],
