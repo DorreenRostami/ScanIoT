@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:async';
+import 'package:path_provider/path_provider.dart';
+
 
 String ipAddress = "http://192.168.224.159:5000";
 
@@ -317,7 +319,6 @@ class _DashboardState extends State<Dashboard> {
   }
 
 
-
   File? selectedImage; // Holds the selected image file
   String selectedFileName = "No file chosen"; // Default file name text
 
@@ -331,6 +332,15 @@ class _DashboardState extends State<Dashboard> {
 
     File? dialogSelectedImage;
     String dialogSelectedFileName = "No file chosen";
+    bool newImage = false;
+
+    // Check if the image file exists in the application documents directory
+    final directory = await getApplicationDocumentsDirectory();
+    final String imagePath = '${directory.path}/device_photo_$mac.jpg';
+    if (File(imagePath).existsSync()) {
+      dialogSelectedImage = File(imagePath);
+      dialogSelectedFileName = 'device_photo_$mac.jpg';
+    }
 
     //open the camera and capture an image
     Future<void> openCamera(StateSetter dialogSetState) async {
@@ -340,7 +350,8 @@ class _DashboardState extends State<Dashboard> {
       if (photo != null) {
         dialogSetState(() {
           dialogSelectedImage = File(photo.path);
-          dialogSelectedFileName = photo.name; // Update file name
+          dialogSelectedFileName = "device_photo_$mac";
+          newImage = true;
         });
       }
     }
@@ -461,7 +472,7 @@ class _DashboardState extends State<Dashboard> {
                               ..fields['device_description'] =
                                   descriptionController.text;
 
-                        if (dialogSelectedImage != null) {
+                        if (newImage == true) {
                           request.files.add(await http.MultipartFile.fromPath(
                             'device_image',
                             dialogSelectedImage!.path,
@@ -475,6 +486,13 @@ class _DashboardState extends State<Dashboard> {
                             savedDevices = [];
                             didSomething = "Device Updated Successfully";
                           });
+
+                          if (newImage == true) {
+                            final directory = await getApplicationDocumentsDirectory();
+                            final String filePath = '${directory.path}/device_photo_$mac.jpg';
+                            await dialogSelectedImage!.copy(filePath);
+                            print('Image saved successfully at $filePath');
+                          }
                         } else {
                           print(
                               'Failed to update device. Status code: ${response.statusCode}');
