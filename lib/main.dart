@@ -9,7 +9,7 @@ import 'dart:async';
 import 'package:path_provider/path_provider.dart';
 
 
-String ipAddress = "http://192.168.224.159:5000";
+String ipAddress = "http://192.168.40.159:5000";
 
 void main() {
   runApp(HomeGuardApp());
@@ -103,9 +103,9 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pushNamed(context, '/dashboard',
-                      arguments: "admin");
-                  return;
+                  // Navigator.pushNamed(context, '/dashboard',
+                  //     arguments: "admin");
+                  // return;
                   if (_formKey.currentState!.validate()) {
                     String username = _usernameController.text;
                     String password = _passwordController.text;
@@ -183,6 +183,11 @@ class _DashboardState extends State<Dashboard> {
           "Content-Type": "application/json",
         },
       );
+
+      print("-----------------");
+      print(response.statusCode);
+      print(response.body);
+      print("------------------");
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
@@ -297,7 +302,7 @@ class _DashboardState extends State<Dashboard> {
   /// Start timer which will update the captured devices list every 15 sec
   void startCapturedDevicesUpdate() {
     _stopUpdateTimer();
-    _updateTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+    _updateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       getCapturedDevices();
     });
     getCapturedDevices();
@@ -440,14 +445,13 @@ class _DashboardState extends State<Dashboard> {
               actions: [
                 ElevatedButton(
                   onPressed: () async {
-                    if (nameController.text.isEmpty ||
-                        descriptionController.text.isEmpty) {
+                    if (nameController.text.isEmpty) {
                       showDialog<void>(
                         context: context,
                         builder: (BuildContext context) {
                           return AlertDialog(
                             title: const Text('Error'),
-                            content: const Text('Both fields are required!'),
+                            content: const Text('The name field is required!'),
                             actions: [
                               ElevatedButton(
                                 onPressed: () {
@@ -635,9 +639,27 @@ class _DashboardState extends State<Dashboard> {
   }
 
   /// Stop packet capture when stop button is pressed
-  void stopCaptureForDevice(Device device) {
-    print("Stopping capture for device: ${device.displayName}");
+  void stopCaptureForDevice(Device device) async {
+    String url = '$ipAddress/stop_capture';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"mac": device.mac}),
+      );
+
+      if (response.statusCode == 200) {
+        print('Capture stopped successfully for device: ${device.mac}');
+        startCapturedDevicesUpdate();
+      } else {
+        print('Failed to stop capture. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error while stopping capture: $e');
+    }
   }
+
 
   /// Build the dashboard widgets
   @override

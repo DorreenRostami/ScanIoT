@@ -37,9 +37,9 @@ class Device {
       ipv6: (json['ips']['IPv6'] as List<dynamic>).isNotEmpty
           ? json['ips']['IPv6'][0] as String
           : "",
-      displayName: json['display_name'],
+      displayName: json['display_name'] ?? "",
       vendor: json['vendor'],
-      description: json['description']
+      description: json['description'] ?? ""
     );
   }
 
